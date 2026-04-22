@@ -22,6 +22,68 @@ document.addEventListener("DOMContentLoaded", async () => {
       window.location.reload();
     }
   });
+
+  // ===============================
+  // Extension Toggle
+  // ===============================
+  const toggle = document.getElementById('extensionToggle');
+  const restartSection = document.getElementById('restartSection');
+  
+  // Load toggle state
+  const { extensionEnabled } = await chrome.storage.local.get({ extensionEnabled: true });
+  
+  // Set initial state without animation
+  if (extensionEnabled) {
+    toggle.classList.add('active');
+  } else {
+    toggle.classList.remove('active');
+  }
+  
+  // Enable transitions after initial state is set
+  setTimeout(() => {
+    toggle.classList.add('loaded');
+  }, 50);
+
+  // Handle toggle click
+  toggle.addEventListener('click', async () => {
+    const isActive = toggle.classList.contains('active');
+    const newState = !isActive;
+    
+    // Update UI
+    if (newState) {
+      toggle.classList.add('active');
+    } else {
+      toggle.classList.remove('active');
+    }
+    
+    // Save state
+    await chrome.storage.local.set({ extensionEnabled: newState });
+    
+    // Notify background script
+    chrome.runtime.sendMessage({ 
+      type: 'TOGGLE_EXTENSION', 
+      enabled: newState 
+    });
+    
+    info(`Extension ${newState ? 'enabled' : 'disabled'}`);
+  });
+
+  // ===============================
+  // Restart Button
+  // ===============================
+  document.getElementById('restartBtn')?.addEventListener('click', async () => {
+    const btn = document.getElementById('restartBtn');
+    btn.textContent = '🔄 Restarting...';
+    btn.disabled = true;
+    
+    // Disable and re-enable extension
+    await chrome.storage.local.set({ extensionEnabled: false });
+    await new Promise(resolve => setTimeout(resolve, 500));
+    await chrome.storage.local.set({ extensionEnabled: true });
+    
+    // Reload extension
+    chrome.runtime.reload();
+  });
   
   // ===============================
   // Check for pending jobs FIRST
@@ -496,5 +558,11 @@ async function checkConnectionStatus(token) {
     statusEl.classList.remove("connected");
     statusEl.classList.add("disconnected");
     countEl.textContent = "-";
+    
+    // Show restart button on connection error
+    const restartSection = document.getElementById('restartSection');
+    if (restartSection) {
+      restartSection.style.display = 'block';
+    }
   }
 }

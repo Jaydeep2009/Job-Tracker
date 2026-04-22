@@ -5,16 +5,14 @@ const app = express();
 
 app.use(express.json());
 
-const allowedOrigins = [
-    "http://localhost:3000",     
-    "http://localhost:5173",
-    "https://humorous-solace-production.up.railway.app",
-    "https://job-tracker-jwue.vercel.app", // New Vercel frontend
-];
+// Parse CORS origins from env, fallback to localhost for development
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+    ? process.env.ALLOWED_ORIGINS.split(",").map(o => o.trim())
+    : ["http://localhost:3000", "http://localhost:5173"];
 
 app.use(cors({
     origin: (origin, callback) => {
-        if(!origin){
+        if (!origin) {
             return callback(null, true);
         }
 
@@ -27,8 +25,8 @@ app.use(cors({
         }
 
         callback(new Error("Not allowed by CORS"));
-        },
-        credentials: true,
+    },
+    credentials: true,
 }));
 
 export default app;

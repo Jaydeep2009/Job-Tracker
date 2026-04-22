@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import jwt, {type JwtPayload } from "jsonwebtoken";
 import { JWT_SECRET } from "../config/jwt.js";
+import { UnauthorizedError } from "../errors/index.js";
 
 interface TokenPayload extends JwtPayload {
     userId: string;
@@ -12,18 +13,20 @@ export function authenticate(
     next: NextFunction
 ) {
     const authHeader = req.headers.authorization;
-    if (!authHeader)
-        return res.status(401).json({ error: "Unauthorized" });
+    if (!authHeader) {
+        throw new UnauthorizedError("Authentication required");
+    }
 
     const token = authHeader.split(" ")[1];
-    if (!token)
-        return res.status(401).json({ error: "Unauthorized" });
+    if (!token) {
+        throw new UnauthorizedError("Authentication required");
+    }
 
     try {
         const payload = jwt.verify(token, JWT_SECRET) as unknown as TokenPayload;
         req.userId = payload.userId;
         next();
     } catch {
-        return res.status(401).json({ error: "Invalid token" });
+        throw new UnauthorizedError("Invalid or expired token");
     }
 }

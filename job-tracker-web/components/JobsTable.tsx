@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ExternalLink, Loader2 } from "lucide-react";
+import { ExternalLink, Loader2, Trash2 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 
 import {
@@ -27,6 +27,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+import { Button } from "@/components/ui/button";
 import { JobsPagination } from "@/components/JobsPagination";
 
 type Job = {
@@ -43,9 +44,10 @@ type Job = {
 interface JobsTableProps {
   statusFilter: string;
   platformFilter: string;
+  searchQuery: string;
 }
 
-export function JobsTable({ statusFilter, platformFilter }: JobsTableProps) {
+export function JobsTable({ statusFilter, platformFilter, searchQuery }: JobsTableProps) {
   const router = useRouter();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
@@ -53,7 +55,12 @@ export function JobsTable({ statusFilter, platformFilter }: JobsTableProps) {
   const [totalPages, setTotalPages] = useState(1);
   const itemsPerPage = 10;
 
-  // Fetch jobs when filters or page changes
+  // Reset to page 1 when filters or search change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [statusFilter, platformFilter, searchQuery]);
+
+  // Fetch jobs with server-side filtering
   useEffect(() => {
     const loadJobs = async () => {
       setLoading(true);
@@ -64,7 +71,15 @@ export function JobsTable({ statusFilter, platformFilter }: JobsTableProps) {
           return;
         }
 
-        const data = await apiFetch(`/api/jobs?page=${currentPage}&limit=${itemsPerPage}`);
+        // Build URL with server-side filter params
+        const params = new URLSearchParams();
+        params.set("page", String(currentPage));
+        params.set("limit", String(itemsPerPage));
+        if (statusFilter !== "ALL") params.set("status", statusFilter);
+        if (platformFilter !== "ALL") params.set("platform", platformFilter);
+        if (searchQuery.trim()) params.set("search", searchQuery.trim());
+
+        const data = await apiFetch(`/api/jobs?${params.toString()}`);
         setJobs(data.jobs || []);
         setTotalPages(data.totalPages || 1);
       } catch (err) {
@@ -77,16 +92,7 @@ export function JobsTable({ statusFilter, platformFilter }: JobsTableProps) {
     };
 
     loadJobs();
-  }, [router, currentPage]);
-
-  // Filter jobs based on selected filters (client-side)
-  const filteredJobs = useMemo(() => {
-    return jobs.filter((job) => {
-      const matchesStatus = statusFilter === "ALL" || job.status === statusFilter;
-      const matchesPlatform = platformFilter === "ALL" || job.platform === platformFilter;
-      return matchesStatus && matchesPlatform;
-    });
-  }, [jobs, statusFilter, platformFilter]);
+  }, [router, currentPage, statusFilter, platformFilter, searchQuery]);
 
   // Update job status
   const updateJobStatus = async (jobId: string, newStatus: string) => {
@@ -105,6 +111,20 @@ export function JobsTable({ statusFilter, platformFilter }: JobsTableProps) {
     } catch (err) {
       console.error("Failed to update status:", err);
       alert("Failed to update status");
+    }
+  };
+
+  // Delete job
+  const deleteJob = async (jobId: string, jobTitle: string) => {
+    if (!confirm(`Delete "${jobTitle}"? This cannot be undone.`)) return;
+
+    try {
+      await apiFetch(`/api/jobs/${jobId}`, { method: "DELETE" });
+      // Remove from local state
+      setJobs((prev) => prev.filter((job) => job.id !== jobId));
+    } catch (err) {
+      console.error("Failed to delete job:", err);
+      alert("Failed to delete job");
     }
   };
 
@@ -130,7 +150,7 @@ export function JobsTable({ statusFilter, platformFilter }: JobsTableProps) {
       {/* Jobs Table */}
       <Card className="border-2">
         <CardContent className="p-0">
-          {filteredJobs.length === 0 ? (
+          {jobs.length === 0 ? (
             <div className="py-10 text-center text-muted-foreground">
               No applications found.
             </div>
@@ -145,11 +165,12 @@ export function JobsTable({ statusFilter, platformFilter }: JobsTableProps) {
                   <TableHead className="border border-gray-300 bg-gray-100 font-semibold">Status</TableHead>
                   <TableHead className="border border-gray-300 bg-gray-100 font-semibold">Applied</TableHead>
                   <TableHead className="border border-gray-300 bg-gray-100 font-semibold">Link</TableHead>
+                  <TableHead className="border border-gray-300 bg-gray-100 font-semibold w-[60px]"></TableHead>
                 </TableRow>
               </TableHeader>
 
               <TableBody>
-                {filteredJobs.map((job) => (
+                {jobs.map((job) => (
                   <TableRow key={job.id}>
                     <TableCell className="border border-gray-300 font-semibold">
                       {job.companyName}
@@ -194,6 +215,18 @@ export function JobsTable({ statusFilter, platformFilter }: JobsTableProps) {
                         View <ExternalLink className="h-3 w-3" />
                       </a>
                     </TableCell>
+
+                    <TableCell className="border border-gray-300">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-red-600"
+                        onClick={() => deleteJob(job.id, job.jobTitle)}
+                        title="Delete job"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -201,7 +234,7 @@ export function JobsTable({ statusFilter, platformFilter }: JobsTableProps) {
           )}
         </CardContent>
       </Card>
-      {/* Pagination - Show based on total pages, not filtered results */}
+      {/* Pagination */}
       <JobsPagination
         currentPage={currentPage}
         totalPages={totalPages}
@@ -210,3 +243,4 @@ export function JobsTable({ statusFilter, platformFilter }: JobsTableProps) {
     </>
   );
 }
+

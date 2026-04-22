@@ -1,42 +1,21 @@
 import type { Request, Response } from "express";
 import * as authService from "./auth.service.js";
+import type { RegisterInput, LoginInput } from "../validation/schemas/auth.schema.js";
+import { asyncHandler } from "../middleware/asyncHandler.js";
 
-export async function register(req: Request, res: Response) {
-    try {
-        const { email, password } = req.body;
+export const register = asyncHandler(async (req: Request, res: Response) => {
+    const { email, password } = req.body as RegisterInput;
+    const token = await authService.register(email, password);
+    res.json({ token });
+});
 
-        if (!email || !password) {
-            return res
-                .status(400)
-                .json({ error: "Email and password are required" });
-        }
+export const login = asyncHandler(async (req: Request, res: Response) => {
+    const { email, password } = req.body as LoginInput;
+    const token = await authService.login(email, password);
+    res.json({ token });
+});
 
-        const token = await authService.register(email, password);
-        res.json({ token });
-    } catch (error: any) {
-        console.error("Register error:", error);
-        res.status(500).json({ error: error.message || "Registration failed" });
-    }
-}
-
-export async function login(req: Request, res: Response) {
-    try {
-        const { email, password } = req.body;
-
-        if (!email || !password) {
-            return res
-                .status(400)
-                .json({ error: "Email and password are required" });
-        }
-
-        const token = await authService.login(email, password);
-        res.json({ token });
-    } catch (error: any) {
-        console.error("Login error:", error);
-        res.status(401).json({ error: error.message || "Login failed" });
-    }
-}
-
-export async function me(req: Request & { userId?: string }, res: Response) {
-    res.json({ userId: req.userId });
-}
+export const me = asyncHandler(async (req: Request & { userId?: string }, res: Response) => {
+    const profile = await authService.getProfile(req.userId!);
+    res.json(profile);
+});

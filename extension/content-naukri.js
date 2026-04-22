@@ -108,7 +108,14 @@ function handleExternalApply() {
  * - class: "company-site-button"
  * - id: "company-site-button"
  */
-document.addEventListener("click", (e) => {
+document.addEventListener("click", async (e) => {
+  // Check if extension is enabled
+  const { extensionEnabled } = await chrome.storage.local.get({ extensionEnabled: true });
+  if (!extensionEnabled) {
+    info('Extension is disabled, skipping job tracking');
+    return;
+  }
+
   const button = e.target?.closest(
     "#apply-button, #company-site-button"
   );
