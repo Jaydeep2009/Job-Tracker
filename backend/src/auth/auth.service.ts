@@ -1,41 +1,45 @@
-import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
-import prisma from "../lib/prisma.js";
-import { JWT_SECRET, JWT_EXPIRES_IN } from "../config/jwt.js";
-import { Prisma } from "@prisma/client";
+import { adminAuth } from '../lib/firebase.js';
+import prisma from '../lib/prisma.js';
 
-export async function register(email: string, password: string) {
-    try {
-        const hashedPassword = await bcrypt.hash(password, 10);
+// In-memory cache — avoids DB check on every request after first sync
+const knownUsers = new Set<string>();
 
-        const user = await prisma.user.create({
-            data: { email, password: hashedPassword },
-        });
+export async function syncUser(userId: string, emailFromToken?: string): Promise<void> {
+  if (knownUsers.has(userId)) return;
 
-        return generateToken(user.id);
-    } catch (error) {
-        if (
-            error instanceof Prisma.PrismaClientKnownRequestError &&
-            error.code === "P2002"
-        ) {
-            throw new Error("Email already exists");
-        }
-        throw error;
-    }
-}
+  const existing = await prisma.user.findUnique({ where: { id: userId } });
 
-export async function login(email: string, password: string) {
-    const user = await prisma.user.findUnique({ where: { email } });
-    if (!user) throw new Error("Invalid credentials");
+  if (!existing) {
+    // First time — get email from token claim if available, else fetch from Firebase
+    const email = emailFromToken ?? (await adminAuth.getUser(userId)).email ?? '';
 
-    const isValid = await bcrypt.compare(password, user.password);
-    if (!isValid) throw new Error("Invalid credentials");
-
-    return generateToken(user.id);
-}
-
-function generateToken(userId: string) {
-    return jwt.sign({ userId }, JWT_SECRET, {
-        expiresIn: JWT_EXPIRES_IN,
+    await prisma.user.upsert({
+      where: { id: userId },
+      update: {},
+      create: { id: userId, email },
     });
+  }
+
+  knownUsers.add(userId);
+}
+
+export async function getProfileService(userId: string) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      email: true,
+      createdAt: true,
+      _count: { select: { jobs: true } },
+    },
+  });
+
+  if (!user) throw new Error('User not found');
+
+  return {
+    id: user.id,
+    email: user.email,
+    createdAt: user.createdAt.toISOString(),
+    jobCount: user._count.jobs,
+  };
 }

@@ -1,29 +1,43 @@
-import type { Request, Response, NextFunction } from "express";
-import jwt, {type JwtPayload } from "jsonwebtoken";
-import { JWT_SECRET } from "../config/jwt.js";
+import type { Request, Response, NextFunction } from 'express';
+import { adminAuth } from '../lib/firebase.js';
+import { syncUser } from './auth.service.js';
+import { UnauthorizedError } from '../errors/index.js';
 
-interface TokenPayload extends JwtPayload {
-    userId: string;
+declare global {
+  namespace Express {
+    interface Request {
+      userId: string;
+    }
+  }
 }
 
-export function authenticate(
-    req: Request & { userId?: string },
-    res: Response,
-    next: NextFunction
-) {
+export async function authenticate(
+  req: Request,
+  _res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
     const authHeader = req.headers.authorization;
-    if (!authHeader)
-        return res.status(401).json({ error: "Unauthorized" });
 
-    const token = authHeader.split(" ")[1];
-    if (!token)
-        return res.status(401).json({ error: "Unauthorized" });
-
-    try {
-        const payload = jwt.verify(token, JWT_SECRET) as unknown as TokenPayload;
-        req.userId = payload.userId;
-        next();
-    } catch {
-        return res.status(401).json({ error: "Invalid token" });
+    if (!authHeader?.startsWith('Bearer ')) {
+      throw new UnauthorizedError('No token provided');
     }
+
+    const token = authHeader.split(' ')[1];
+    if(!token){
+      throw new UnauthorizedError('No token provided');
+    }
+    const decoded = await adminAuth.verifyIdToken(token);
+    req.userId = decoded.uid;
+    // Sync user to DB on first encounter — no-op after that (memory cache)
+    await syncUser(decoded.uid, decoded.email);
+    next();
+  } catch (err) {
+    // Don't double-wrap if it's already an AppError
+    if (err instanceof UnauthorizedError) {
+      next(err);
+    } else {
+      next(new UnauthorizedError('Invalid or expired token'));
+    }
+  }
 }
