@@ -1,5 +1,13 @@
 import type { Request, Response, NextFunction } from "express";
 import * as jobsService from "./jobs.service.js";
+import type {
+  CreateJobInput,
+  ListJobsQuery,
+  UpdateJobParams,
+  UpdateJobInput,
+  DeleteJobParams,
+} from "../validation/schemas/job.schema.js";
+import { asyncHandler } from "../middleware/asyncHandler.js";
 
 export async function createJob(
     req: Request & { userId?: string },

@@ -1,4 +1,5 @@
 import React from "react";
+import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -11,21 +12,39 @@ import {
 interface JobFiltersProps {
   statusFilter: string;
   platformFilter: string;
+  searchQuery: string;
   onStatusChange: (value: string) => void;
   onPlatformChange: (value: string) => void;
+  onSearchChange: (value: string) => void;
   onReset: () => void;
 }
 
 export const JobFilters = React.memo(({
   statusFilter,
   platformFilter,
+  searchQuery,
   onStatusChange,
   onPlatformChange,
+  onSearchChange,
   onReset
 }: JobFiltersProps) => {
   return (
     <div className="flex gap-4 items-end">
       <div className="flex-1">
+        <label className="text-sm font-medium mb-2 block px-2">Search</label>
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <input
+            type="text"
+            placeholder="Search by company or job title..."
+            value={searchQuery}
+            onChange={(e) => onSearchChange(e.target.value)}
+            className="w-full rounded-md border border-input bg-background px-9 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          />
+        </div>
+      </div>
+
+      <div className="w-[160px]">
         <label className="text-sm font-medium mb-2 block px-2">Status</label>
         <Select value={statusFilter} onValueChange={onStatusChange}>
           <SelectTrigger>
@@ -41,7 +60,7 @@ export const JobFilters = React.memo(({
         </Select>
       </div>
 
-      <div className="flex-1">
+      <div className="w-[160px]">
         <label className="text-sm font-medium mb-2 block px-2">Platform</label>
         <Select value={platformFilter} onValueChange={onPlatformChange}>
           <SelectTrigger>
@@ -64,3 +83,4 @@ export const JobFilters = React.memo(({
 });
 
 JobFilters.displayName = "JobFilters";
+

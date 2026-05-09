@@ -19,7 +19,8 @@ export async function createJob(
         appliedAt: string;
     }
 ) {
-    const platformEnum = data.platform.toUpperCase();
+    // Safe enum conversion (already validated by Zod)
+    const platform = data.platform as JobPlatform;
 
     if (!VALID_PLATFORMS.includes(platformEnum as ValidPlatform)) {
         throw new BadRequestError(`Invalid platform: ${data.platform}. Must be one of: ${VALID_PLATFORMS.join(", ")}`);
@@ -128,6 +129,13 @@ export async function updateJob(
             },
         });
     }
+
+    if (job.userId !== userId) {
+        throw new ForbiddenError("You do not have permission to update this job");
+    }
+
+    // Safe enum conversion (already validated by Zod)
+    const status = data.status as JobStatus;
 
     return prisma.job.update({
         where: { id: jobId },

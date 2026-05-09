@@ -235,7 +235,14 @@ if (document.readyState === "loading") {
 /**
  * GLOBAL click listener with comprehensive button detection
  */
-document.addEventListener("click", (e) => {
+document.addEventListener("click", async (e) => {
+  // Check if extension is enabled
+  const { extensionEnabled } = await chrome.storage.local.get({ extensionEnabled: true });
+  if (!extensionEnabled) {
+    info('Extension is disabled, skipping job tracking');
+    return;
+  }
+
   // Try to find button element
   let button = e.target;
   

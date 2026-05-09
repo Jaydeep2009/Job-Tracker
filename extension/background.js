@@ -33,7 +33,8 @@ registerHandlers({
   'EXTERNAL_APPLY_CACHED': handleExternalApply,
   'UPDATE_BADGE': handleUpdateBadge,
   'CLEAR_BADGE': handleClearBadge,
-  'RETRY_FAILED': handleRetryFailed
+  'RETRY_FAILED': handleRetryFailed,
+  'TOGGLE_EXTENSION': handleToggleExtension
 });
 
 // ===============================
@@ -115,6 +116,24 @@ async function handleClearBadge() {
 async function handleRetryFailed() {
   info('Retrying failed jobs');
   await jobQueue.retryFailed();
+  return { success: true };
+}
+
+async function handleToggleExtension(data) {
+  const enabled = data.enabled;
+  info(`Extension toggled: ${enabled ? 'ON' : 'OFF'}`);
+  
+  // Store state
+  await chrome.storage.local.set({ extensionEnabled: enabled });
+  
+  // Update badge to indicate state
+  if (!enabled) {
+    chrome.action.setBadgeText({ text: 'OFF' });
+    chrome.action.setBadgeBackgroundColor({ color: '#dc2626' });
+  } else {
+    chrome.action.setBadgeText({ text: '' });
+  }
+  
   return { success: true };
 }
 

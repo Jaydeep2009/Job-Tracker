@@ -1,6 +1,13 @@
 import { Router } from "express";
 import * as controller from "./jobs.controller.js";
 import { authenticate } from "../auth/auth.middleware.js";
+import { validate } from "../validation/middleware.js";
+import {
+  createJobSchema,
+  listJobsSchema,
+  updateJobSchema,
+  deleteJobSchema,
+} from "../validation/schemas/job.schema.js";
 
 const router = Router();
 

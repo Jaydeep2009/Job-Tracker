@@ -44,25 +44,40 @@ function LoginForm() {
             // If this is extension auth flow, send token to extension
             if (isExtensionAuth && extensionId) {
                 try {
-                    // @ts-ignore - chrome is available in browser
-                    chrome.runtime.sendMessage(
-                        extensionId,
-                        { type: 'AUTH_TOKEN', token: data.token },
-                        (response: any) => {
-                            if (response?.success) {
-                                setExtensionAuthSuccess(true);
-                                // Auto-close tab after 2 seconds
-                                setTimeout(() => {
-                                    window.close();
-                                }, 2000);
-                            } else {
-                                throw new Error('Failed to authenticate extension');
+                    // Check if Chrome extension API is available
+                    const chromeApi = (window as any).chrome;
+                    if (chromeApi?.runtime?.sendMessage) {
+                        chromeApi.runtime.sendMessage(
+                            extensionId,
+                            { type: 'AUTH_TOKEN', token: data.token },
+                            (response: any) => {
+                                if (response?.success) {
+                                    setExtensionAuthSuccess(true);
+                                    setTimeout(() => {
+                                        window.close();
+                                    }, 2000);
+                                } else {
+                                    // Extension didn't respond, fall back to normal login
+                                    localStorage.setItem("authToken", data.token);
+                                    localStorage.setItem("userEmail", email);
+                                    setError('Extension not reachable. Logged in to web app instead.');
+                                    router.push("/dashboard");
+                                }
                             }
-                        }
-                    );
+                        );
+                    } else {
+                        // chrome.runtime not available — fall back to normal web login
+                        localStorage.setItem("authToken", data.token);
+                        localStorage.setItem("userEmail", email);
+                        router.push("/dashboard");
+                    }
                 } catch (err) {
                     console.error('Extension auth failed:', err);
-                    setError('Extension authentication failed. Please try logging in from the extension popup.');
+                    // Fall back to normal login so user isn't stuck
+                    localStorage.setItem("authToken", data.token);
+                    localStorage.setItem("userEmail", email);
+                    setError('Extension authentication failed. Logged in to web app instead.');
+                    router.push("/dashboard");
                 }
             } else {
                 // Normal web login flow
@@ -94,8 +109,8 @@ function LoginForm() {
                                 <p className="font-medium">Extension authenticated successfully</p>
                                 <p className="text-sm mt-2">This tab will close automatically...</p>
                             </div>
-                            <Button 
-                                onClick={() => window.close()} 
+                            <Button
+                                onClick={() => window.close()}
                                 variant="outline"
                                 className="w-full"
                             >
@@ -116,8 +131,8 @@ function LoginForm() {
                         {isExtensionAuth ? "Login to Extension" : "Login"}
                     </CardTitle>
                     <CardDescription>
-                        {isExtensionAuth 
-                            ? "Sign in to connect your JobTracker extension" 
+                        {isExtensionAuth
+                            ? "Sign in to connect your JobTracker extension"
                             : "Sign in to your job tracker account"
                         }
                     </CardDescription>
