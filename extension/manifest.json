@@ -4,10 +4,9 @@
   "version": "1.0.1",
   "description": "Track your job applications automatically. Never lose track of where you applied. Sync with your personal dashboard.",
   "author": "Atharva Mutkule",
-  "permissions": [
-    "storage",
-    "notifications"
-  ],
+
+  "permissions": ["storage", "notifications", "activeTab", "tabs"],
+
   "host_permissions": [
     "https://www.linkedin.com/*",
     "https://www.naukri.com/*"

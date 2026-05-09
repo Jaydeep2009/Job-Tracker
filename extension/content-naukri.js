@@ -9,6 +9,7 @@ import {
   checkForPendingJob
 } from './shared.js';
 import { extractJob, getPlatformName, detectApplyType } from './services/jobExtractor.js';
+import { isExtensionContextValid } from './core/context.js';
 
 info("Naukri content script loaded");
 info("Running on:", window.location.href);
@@ -113,6 +114,14 @@ document.addEventListener("click", async (e) => {
   const { extensionEnabled } = await chrome.storage.local.get({ extensionEnabled: true });
   if (!extensionEnabled) {
     info('Extension is disabled, skipping job tracking');
+    return;
+  }
+
+document.addEventListener("click", (e) => {
+  // Guard: if extension context is invalid, this content script is stale
+  // Bail out silently instead of crashing with "Extension context invalidated"
+  if (!isExtensionContextValid()) {
+    console.warn('[JobTracker] Stale content script detected. Please reload the page.');
     return;
   }
 

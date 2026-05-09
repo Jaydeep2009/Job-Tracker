@@ -3,20 +3,40 @@
  * Provides promise-based interface for chrome.storage operations
  */
 
+import { isExtensionContextValid } from './context.js';
+
 /**
  * Get value from chrome.storage.sync
  * @param {string|string[]} key - Key or array of keys
  * @returns {Promise<any>}
  */
 export async function get(key) {
+  if (!isExtensionContextValid()) {
+    console.warn('[JobTracker] Extension context invalid, skipping storage.sync.get');
+    return null;
+  }
+  
   return new Promise((resolve, reject) => {
-    chrome.storage.sync.get(key, (result) => {
-      if (chrome.runtime.lastError) {
-        reject(chrome.runtime.lastError);
+    try {
+      chrome.storage.sync.get(key, (result) => {
+        if (chrome.runtime.lastError) {
+          if (chrome.runtime.lastError.message?.includes('Extension context invalidated')) {
+            console.warn('[JobTracker] Extension context invalidated during storage.sync.get');
+            return resolve(null);
+          }
+          reject(chrome.runtime.lastError);
+        } else {
+          resolve(typeof key === 'string' ? result[key] : result);
+        }
+      });
+    } catch (err) {
+      if (err.message?.includes('Extension context invalidated')) {
+        console.warn('[JobTracker] Extension context invalidated - storage.sync.get');
+        resolve(null);
       } else {
-        resolve(typeof key === 'string' ? result[key] : result);
+        reject(err);
       }
-    });
+    }
   });
 }
 
@@ -27,14 +47,32 @@ export async function get(key) {
  * @returns {Promise<void>}
  */
 export async function set(key, value) {
+  if (!isExtensionContextValid()) {
+    console.warn('[JobTracker] Extension context invalid, skipping storage.sync.set');
+    return false;
+  }
+  
   return new Promise((resolve, reject) => {
-    chrome.storage.sync.set({ [key]: value }, () => {
-      if (chrome.runtime.lastError) {
-        reject(chrome.runtime.lastError);
+    try {
+      chrome.storage.sync.set({ [key]: value }, () => {
+        if (chrome.runtime.lastError) {
+          if (chrome.runtime.lastError.message?.includes('Extension context invalidated')) {
+            console.warn('[JobTracker] Extension context invalidated during storage.sync.set');
+            return resolve(false);
+          }
+          reject(chrome.runtime.lastError);
+        } else {
+          resolve(true);
+        }
+      });
+    } catch (err) {
+      if (err.message?.includes('Extension context invalidated')) {
+        console.warn('[JobTracker] Extension context invalidated - storage.sync.set');
+        resolve(false);
       } else {
-        resolve();
+        reject(err);
       }
-    });
+    }
   });
 }
 
@@ -44,14 +82,32 @@ export async function set(key, value) {
  * @returns {Promise<void>}
  */
 export async function remove(key) {
+  if (!isExtensionContextValid()) {
+    console.warn('[JobTracker] Extension context invalid, skipping storage.sync.remove');
+    return false;
+  }
+  
   return new Promise((resolve, reject) => {
-    chrome.storage.sync.remove(key, () => {
-      if (chrome.runtime.lastError) {
-        reject(chrome.runtime.lastError);
+    try {
+      chrome.storage.sync.remove(key, () => {
+        if (chrome.runtime.lastError) {
+          if (chrome.runtime.lastError.message?.includes('Extension context invalidated')) {
+            console.warn('[JobTracker] Extension context invalidated during storage.sync.remove');
+            return resolve(false);
+          }
+          reject(chrome.runtime.lastError);
+        } else {
+          resolve(true);
+        }
+      });
+    } catch (err) {
+      if (err.message?.includes('Extension context invalidated')) {
+        console.warn('[JobTracker] Extension context invalidated - storage.sync.remove');
+        resolve(false);
       } else {
-        resolve();
+        reject(err);
       }
-    });
+    }
   });
 }
 
@@ -61,14 +117,32 @@ export async function remove(key) {
  * @returns {Promise<any>}
  */
 export async function getLocal(key) {
+  if (!isExtensionContextValid()) {
+    console.warn('[JobTracker] Extension context invalid, skipping storage.local.get');
+    return null;
+  }
+  
   return new Promise((resolve, reject) => {
-    chrome.storage.local.get(key, (result) => {
-      if (chrome.runtime.lastError) {
-        reject(chrome.runtime.lastError);
+    try {
+      chrome.storage.local.get(key, (result) => {
+        if (chrome.runtime.lastError) {
+          if (chrome.runtime.lastError.message?.includes('Extension context invalidated')) {
+            console.warn('[JobTracker] Extension context invalidated during storage.local.get');
+            return resolve(null);
+          }
+          reject(chrome.runtime.lastError);
+        } else {
+          resolve(typeof key === 'string' ? result[key] : result);
+        }
+      });
+    } catch (err) {
+      if (err.message?.includes('Extension context invalidated')) {
+        console.warn('[JobTracker] Extension context invalidated - storage.local.get');
+        resolve(null);
       } else {
-        resolve(typeof key === 'string' ? result[key] : result);
+        reject(err);
       }
-    });
+    }
   });
 }
 
@@ -79,14 +153,32 @@ export async function getLocal(key) {
  * @returns {Promise<void>}
  */
 export async function setLocal(key, value) {
+  if (!isExtensionContextValid()) {
+    console.warn('[JobTracker] Extension context invalid, skipping storage.local.set');
+    return false;
+  }
+  
   return new Promise((resolve, reject) => {
-    chrome.storage.local.set({ [key]: value }, () => {
-      if (chrome.runtime.lastError) {
-        reject(chrome.runtime.lastError);
+    try {
+      chrome.storage.local.set({ [key]: value }, () => {
+        if (chrome.runtime.lastError) {
+          if (chrome.runtime.lastError.message?.includes('Extension context invalidated')) {
+            console.warn('[JobTracker] Extension context invalidated during storage.local.set');
+            return resolve(false);
+          }
+          reject(chrome.runtime.lastError);
+        } else {
+          resolve(true);
+        }
+      });
+    } catch (err) {
+      if (err.message?.includes('Extension context invalidated')) {
+        console.warn('[JobTracker] Extension context invalidated - storage.local.set');
+        resolve(false);
       } else {
-        resolve();
+        reject(err);
       }
-    });
+    }
   });
 }
 
@@ -96,14 +188,32 @@ export async function setLocal(key, value) {
  * @returns {Promise<void>}
  */
 export async function removeLocal(key) {
+  if (!isExtensionContextValid()) {
+    console.warn('[JobTracker] Extension context invalid, skipping storage.local.remove');
+    return false;
+  }
+  
   return new Promise((resolve, reject) => {
-    chrome.storage.local.remove(key, () => {
-      if (chrome.runtime.lastError) {
-        reject(chrome.runtime.lastError);
+    try {
+      chrome.storage.local.remove(key, () => {
+        if (chrome.runtime.lastError) {
+          if (chrome.runtime.lastError.message?.includes('Extension context invalidated')) {
+            console.warn('[JobTracker] Extension context invalidated during storage.local.remove');
+            return resolve(false);
+          }
+          reject(chrome.runtime.lastError);
+        } else {
+          resolve(true);
+        }
+      });
+    } catch (err) {
+      if (err.message?.includes('Extension context invalidated')) {
+        console.warn('[JobTracker] Extension context invalidated - storage.local.remove');
+        resolve(false);
       } else {
-        resolve();
+        reject(err);
       }
-    });
+    }
   });
 }
 

@@ -1,44 +1,59 @@
-import { get } from '../core/storage.js';
 import { getBackendUrl } from '../config.js';
 import { info, error as logError } from '../core/logger.js';
+import { get } from '../core/storage.js';
 
-/**
- * ApiClient - Handles all backend API calls
- */
 export class ApiClient {
   constructor() {
     this.baseUrl = null;
-    this.authToken = null;
+    this._refreshing = false; // prevent concurrent refreshes
   }
 
-  /**
-   * Initialize client (load config)
-   */
   async init() {
     this.baseUrl = await getBackendUrl();
-    this.authToken = await get('authToken');
     info('ApiClient initialized:', this.baseUrl);
   }
 
-  /**
-   * Save job to backend
-   */
+  async getToken() {
+    const result = await get('authToken');
+    const authToken = result?.authToken || result;
+    if (!authToken) throw new Error('Not authenticated');
+    return authToken;
+  }
+
+  // Silently refresh token via dashboard, then retry
+  async refreshAndRetry(retryFn) {
+    if (this._refreshing) {
+      // Another call is already refreshing — wait a moment and retry
+      await new Promise(r => setTimeout(r, 2000));
+      return retryFn();
+    }
+
+    this._refreshing = true;
+    try {
+      info('Token expired — attempting silent refresh');
+      const response = await chrome.runtime.sendMessage({ type: 'REFRESH_TOKEN' });
+
+      if (response?.success) {
+        info('Silent refresh succeeded — retrying request');
+        return retryFn(); // retry original call with fresh token
+      } else {
+        // User logged out of dashboard — can't refresh
+        throw new Error('Session ended — please login again');
+      }
+    } finally {
+      this._refreshing = false;
+    }
+  }
+
   async saveJob(jobData) {
-    if (!this.baseUrl || !this.authToken) {
-      await this.init();
-    }
-
-    if (!this.authToken) {
-      throw new Error('Not authenticated');
-    }
-
-    info('Saving job to backend:', jobData.jobTitle);
+    if (!this.baseUrl) await this.init();
+    const token = await this.getToken();
 
     const response = await fetch(`${this.baseUrl}/api/jobs`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${this.authToken}`
+        'Authorization': `Bearer ${token}`
       },
       body: JSON.stringify({
         companyName: jobData.companyName,
@@ -46,66 +61,59 @@ export class ApiClient {
         location: jobData.location,
         description: jobData.description,
         jobUrl: jobData.jobUrl,
-        platform: jobData.platform || 'linkedin',
-        appliedAt: jobData.appliedAt
+        platform: jobData.platform || 'LINKEDIN',
+        appliedAt: jobData.appliedAt || new Date().toISOString()
       })
     });
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || `HTTP ${response.status}`);
+    // Silent refresh on 401 — retry once
+    if (response.status === 401) {
+      return this.refreshAndRetry(() => this.saveJob(jobData));
     }
 
-    const result = await response.json();
-    info('Job saved successfully:', result);
-    return result;
-  }
-
-  /**
-   * Get jobs (for dashboard)
-   */
-  async getJobs(page = 1, limit = 10) {
-    if (!this.baseUrl || !this.authToken) {
-      await this.init();
-    }
-
-    const response = await fetch(
-      `${this.baseUrl}/api/jobs?page=${page}&limit=${limit}`,
-      {
-        headers: {
-          'Authorization': `Bearer ${this.authToken}`
-        }
-      }
-    );
-
     if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.message || `HTTP ${response.status}`);
     }
 
     return await response.json();
   }
 
-  /**
-   * Update job status
-   */
-  async updateJob(id, data) {
-    if (!this.baseUrl || !this.authToken) {
-      await this.init();
+  async getJobs(page = 1, limit = 10) {
+    if (!this.baseUrl) await this.init();
+    const token = await this.getToken();
+
+    const response = await fetch(
+      `${this.baseUrl}/api/jobs?page=${page}&limit=${limit}`,
+      { headers: { 'Authorization': `Bearer ${token}` } }
+    );
+
+    if (response.status === 401) {
+      return this.refreshAndRetry(() => this.getJobs(page, limit));
     }
+
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return await response.json();
+  }
+
+  async updateJob(id, data) {
+    if (!this.baseUrl) await this.init();
+    const token = await this.getToken();
 
     const response = await fetch(`${this.baseUrl}/api/jobs/${id}`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${this.authToken}`
+        'Authorization': `Bearer ${token}`
       },
       body: JSON.stringify(data)
     });
 
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
+    if (response.status === 401) {
+      return this.refreshAndRetry(() => this.updateJob(id, data));
     }
 
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
     return await response.json();
   }
 }

@@ -1,6 +1,6 @@
 // Popup script
 import { getBackendUrl, getDashboardUrl } from './config.js';
-import { getLocal, setLocal } from './core/storage.js';
+import { getLocal, setLocal, get } from './core/storage.js';
 import { info } from './core/logger.js';
 
 // URLs are now managed by config.js
@@ -103,7 +103,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Normal popup flow
   // ===============================
 
-  const { authToken } = await chrome.storage.sync.get(["authToken"]);
+  const authToken = await get('authToken');
 
   // Set initial loading state
   const statusEl = document.getElementById("authStatus");
@@ -130,7 +130,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // Open dashboard
   document.getElementById("openDashboard")?.addEventListener("click", async () => {
-    const { authToken } = await chrome.storage.sync.get(["authToken"]);
+    const authToken = await get('authToken');
     const extensionId = chrome.runtime.id;
 
     if (!authToken) {
@@ -347,7 +347,7 @@ function showPendingJobsUI(jobs) {
       else failCount++;
     }
 
-    await chrome.storage.local.set({ pendingJobs: [] });
+    await setLocal('pendingJobs', []);
     await chrome.action.setBadgeText({ text: "" });
 
     showStatusMessage(
@@ -361,7 +361,7 @@ function showPendingJobsUI(jobs) {
   // Handle Clear All
   document.getElementById("clearAll")?.addEventListener("click", async () => {
     if (confirm(`Clear all ${jobs.length} pending applications?`)) {
-      await chrome.storage.local.set({ pendingJobs: [] });
+      await setLocal('pendingJobs', []);
       await chrome.action.setBadgeText({ text: "" });
       showStatusMessage("All pending jobs cleared", "info");
       setTimeout(() => window.location.reload(), 1000);
@@ -381,7 +381,7 @@ function getTimeAgo(timestamp) {
 }
 
 async function handleConfirmJob(jobId, shouldSave) {
-  const { pendingJobs } = await chrome.storage.local.get("pendingJobs");
+  const pendingJobs = await getLocal("pendingJobs");
   const job = pendingJobs.find(j => j.id === jobId);
   
   if (!job) return;
@@ -411,7 +411,7 @@ async function handleConfirmJob(jobId, shouldSave) {
 
 async function saveJobToBackend(jobData) {
   try {
-    const { authToken } = await chrome.storage.sync.get(["authToken"]);
+    const authToken = await get('authToken');
     
     if (!authToken) {
       showStatusMessage("❌ Please login first", "error");
@@ -435,10 +435,10 @@ async function saveJobToBackend(jobData) {
 }
 
 async function removeJobFromList(jobId) {
-  const { pendingJobs } = await chrome.storage.local.get("pendingJobs");
+  const pendingJobs = await getLocal("pendingJobs");
   const updatedJobs = pendingJobs.filter(j => j.id !== jobId);
   
-  await chrome.storage.local.set({ pendingJobs: updatedJobs });
+  await setLocal('pendingJobs', updatedJobs);
   await chrome.action.setBadgeText({ text: updatedJobs.length > 0 ? String(updatedJobs.length) : "" });
   
   // Remove card from UI
