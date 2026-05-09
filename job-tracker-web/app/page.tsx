@@ -2,25 +2,18 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { auth } from "@/lib/firebase";
 
 export default function Home() {
     const router = useRouter();
 
     useEffect(() => {
-        // Check if user is logged in
-        const token = localStorage.getItem("authToken");
-        if (token) {
-            router.push("/dashboard");
-        } else {
-            router.push("/login");
-        }
+        const unsub = auth.onAuthStateChanged((user) => {
+            unsub();
+            router.push(user ? "/dashboard" : "/login");
+        });
     }, [router]);
 
-    return (
-        <main className="flex min-h-screen items-center justify-center">
-            <h1 className="text-3xl font-bold">
-                Job Application Tracker
-            </h1>
-        </main>
-    );
+    // Return null — no flash of content before redirect
+    return null;
 }
