@@ -11,15 +11,10 @@ import {
 
 const router = Router();
 
-router.post("/", authenticate, validate(createJobSchema), controller.createJob);
-
-router.get("/", authenticate, validate(listJobsSchema), controller.listJobs);
-
-// Stats must be before /:id to prevent "stats" being treated as an id param
-router.get("/stats", authenticate, controller.getStats);
-
-router.patch("/:id", authenticate, validate(updateJobSchema), controller.updateJob);
-
-router.delete("/:id", authenticate, validate(deleteJobSchema), controller.deleteJob);
+router.post("/", authenticate, controller.createJob);
+router.get("/", authenticate, controller.listJobs);
+router.get("/stats", authenticate, controller.getStats); // ← ADD THIS
+router.patch("/:id", authenticate, controller.updateJob);
+router.delete("/:id", authenticate, controller.deleteJob); // ← this is also missing
 
 export default router;

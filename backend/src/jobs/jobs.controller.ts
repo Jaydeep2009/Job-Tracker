@@ -1,4 +1,4 @@
-import type { Request, Response } from "express";
+import type { Request, Response, NextFunction } from "express";
 import * as jobsService from "./jobs.service.js";
 import type {
   CreateJobInput,
@@ -9,66 +9,81 @@ import type {
 } from "../validation/schemas/job.schema.js";
 import { asyncHandler } from "../middleware/asyncHandler.js";
 
-export const createJob = asyncHandler(
-  async (req: Request & { userId?: string }, res: Response) => {
-    const userId = req.userId!;
-    const jobData = req.body as CreateJobInput;
+export async function createJob(
+    req: Request & { userId?: string },
+    res: Response,
+    next: NextFunction
+) {
+    try {
+        const job = await jobsService.createJob(req.userId!, req.body);
+        res.status(201).json(job);
+    } catch (err: any) {
+        console.error("[createJob]", err.message);
+        next(err);
+    }
+}
 
-    // Prepare data for service, handling optional fields properly
-    const serviceData = {
-      companyName: jobData.companyName,
-      jobTitle: jobData.jobTitle,
-      jobUrl: jobData.jobUrl,
-      platform: jobData.platform,
-      appliedAt: jobData.appliedAt,
-      ...(jobData.location && { location: jobData.location }),
-      ...(jobData.description && { description: jobData.description }),
-    };
+export async function listJobs(
+    req: Request & { userId?: string },
+    res: Response,
+    next: NextFunction
+) {
+    try {
+        const page = Number(req.query.page) || 1;
+        const limit = Number(req.query.limit) || 10;
+        const status = req.query.status as string | undefined;
+        const platform = req.query.platform as string | undefined;
+        const search = req.query.search as string | undefined;
 
-    const job = await jobsService.createJob(userId, serviceData);
-    res.status(201).json(job);
-  }
-);
+        const result = await jobsService.getJobs(
+            req.userId!, page, limit, status, platform, search
+        );
+        res.json(result);
+    } catch (err: any) {
+        console.error("[listJobs]", err.message);
+        next(err);
+    }
+}
 
-export const listJobs = asyncHandler(
-  async (req: Request & { userId?: string }, res: Response) => {
-    const { page, limit, status, platform, search } = req.query as unknown as ListJobsQuery;
+export async function getStats(
+    req: Request & { userId?: string },
+    res: Response,
+    next: NextFunction
+) {
+    try {
+        const stats = await jobsService.getStats(req.userId!);
+        res.json(stats);
+    } catch (err: any) {
+        console.error("[getStats]", err.message);
+        next(err);
+    }
+}
 
-    // Explicitly parse to numbers since Express query params might be strings
-    // even after Zod validation middleware assigns them
-    const pageNum = Number(page) || 1;
-    const limitNum = Number(limit) || 15;
+export async function updateJob(
+    req: Request & { userId?: string },
+    res: Response,
+    next: NextFunction
+) {
+    try {
+        const { id } = req.params;
+        const job = await jobsService.updateJob(req.userId!, id!, req.body);
+        res.json(job);
+    } catch (err: any) {
+        console.error("[updateJob]", err.message);
+        next(err);
+    }
+}
 
-    const result = await jobsService.getJobs(req.userId!, pageNum, limitNum, {
-      status,
-      platform,
-      search,
-    });
-    res.json(result);
-  }
-);
-
-export const updateJob = asyncHandler(
-  async (req: Request & { userId?: string }, res: Response) => {
-    const { id } = req.params as UpdateJobParams;
-    const { status } = req.body as UpdateJobInput;
-
-    const job = await jobsService.updateJob(req.userId!, id, { status });
-    res.json(job);
-  }
-);
-
-export const deleteJob = asyncHandler(
-  async (req: Request & { userId?: string }, res: Response) => {
-    const { id } = req.params as DeleteJobParams;
-    await jobsService.deleteJob(req.userId!, id);
-    res.status(204).send();
-  }
-);
-
-export const getStats = asyncHandler(
-  async (req: Request & { userId?: string }, res: Response) => {
-    const stats = await jobsService.getStats(req.userId!);
-    res.json(stats);
-  }
-);
+export async function deleteJob(
+    req: Request & { userId?: string },
+    res: Response,
+    next: NextFunction
+) {
+    try {
+        await jobsService.deleteJob(req.userId!, req.params.id!);
+        res.status(204).send();
+    } catch (err: any) {
+        console.error("[deleteJob]", err.message);
+        next(err);
+    }
+}

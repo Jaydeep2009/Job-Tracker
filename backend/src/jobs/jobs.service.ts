@@ -1,6 +1,11 @@
 import { prisma } from "../lib/prisma.js";
-import { JobPlatform, JobStatus, Prisma } from "@prisma/client";
-import { NotFoundError, ForbiddenError } from "../errors/index.js";
+import { BadRequestError, NotFoundError } from "../errors/index.js";
+
+const VALID_PLATFORMS = ["LINKEDIN", "NAUKRI", "INTERNSHALA"] as const;
+type ValidPlatform = typeof VALID_PLATFORMS[number];
+
+const VALID_STATUSES = ["APPLIED", "INTERVIEW", "OFFER", "REJECTED"] as const;
+type ValidStatus = typeof VALID_STATUSES[number];
 
 export async function createJob(
     userId: string,
@@ -17,12 +22,13 @@ export async function createJob(
     // Safe enum conversion (already validated by Zod)
     const platform = data.platform as JobPlatform;
 
+    if (!VALID_PLATFORMS.includes(platformEnum as ValidPlatform)) {
+        throw new BadRequestError(`Invalid platform: ${data.platform}. Must be one of: ${VALID_PLATFORMS.join(", ")}`);
+    }
+
     return prisma.job.upsert({
         where: {
-            userId_jobUrl: {
-                userId,
-                jobUrl: data.jobUrl
-            },
+            userId_jobUrl: { userId, jobUrl: data.jobUrl },
         },
         update: {
             updatedAt: new Date(),
@@ -33,82 +39,95 @@ export async function createJob(
             location: data.location ?? null,
             description: data.description ?? null,
             jobUrl: data.jobUrl,
-            platform,
+            platform: platformEnum as ValidPlatform,
             appliedAt: new Date(data.appliedAt),
             userId,
         },
     });
 }
 
-
 export async function getJobs(
     userId: string,
     page: number = 1,
     limit: number = 15,
-    filters?: {
-        status?: string | undefined;
-        platform?: string | undefined;
-        search?: string | undefined;
-    }
+    status?: string,
+    platform?: string,
+    search?: string
 ) {
-    // Ensure skip/take are always integers (Prisma requires Int, not String)
-    const safeLimit = Math.max(1, Math.min(100, Number(limit) || 15));
-    const safePage = Math.max(1, Number(page) || 1);
-    const skip = (safePage - 1) * safeLimit;
+    const skip = (page - 1) * limit;
 
-    // Build dynamic where clause
-    const where: Prisma.JobWhereInput = { userId };
+    // Build filter dynamically
+    const where: any = { userId };
 
-    if (filters?.status) {
-        where.status = filters.status as JobStatus;
+    if (status && status !== 'ALL') {
+        where.status = status.toUpperCase();
     }
-
-    if (filters?.platform) {
-        where.platform = filters.platform as JobPlatform;
+    if (platform && platform !== 'ALL') {
+        where.platform = platform.toUpperCase();
     }
-
-    if (filters?.search) {
+    if (search) {
         where.OR = [
-            { jobTitle: { contains: filters.search, mode: 'insensitive' } },
-            { companyName: { contains: filters.search, mode: 'insensitive' } },
+            { jobTitle: { contains: search, mode: 'insensitive' } },
+            { companyName: { contains: search, mode: 'insensitive' } },
         ];
     }
 
-    // Optimize with parallel queries
     const [total, jobs] = await Promise.all([
         prisma.job.count({ where }),
         prisma.job.findMany({
             skip,
-            take: safeLimit,
+            take: limit,
             where,
-            orderBy: { appliedAt: "desc" },
-        })
+            orderBy: { appliedAt: 'desc' },
+        }),
     ]);
-
-    const totalPages = Math.ceil(total / safeLimit);
 
     return {
         jobs,
         total,
-        page: safePage,
-        totalPages,
-        limit: safeLimit,
+        page,
+        totalPages: Math.ceil(total / limit),
+        limit,
     };
 }
 
+export async function getStats(userId: string) {
+    const [total, applied, interview, offer, rejected] = await Promise.all([
+        prisma.job.count({ where: { userId } }),
+        prisma.job.count({ where: { userId, status: 'APPLIED' } }),
+        prisma.job.count({ where: { userId, status: 'INTERVIEW' } }),
+        prisma.job.count({ where: { userId, status: 'OFFER' } }),
+        prisma.job.count({ where: { userId, status: 'REJECTED' } }),
+    ]);
+
+    return { total, APPLIED: applied, INTERVIEW: interview, OFFER: offer, REJECTED: rejected };
+}
 
 export async function updateJob(
     userId: string,
     jobId: string,
     data: { status?: string }
 ) {
-    // Verify the job exists and belongs to the user
-    const job = await prisma.job.findUnique({
-        where: { id: jobId },
+    const job = await prisma.job.findFirst({
+        where: { id: jobId, userId },
     });
 
-    if (!job) {
-        throw new NotFoundError("Job not found");
+    if (!job) throw new NotFoundError('Job not found');
+
+    // Validate status if provided
+    if (data.status) {
+        const statusEnum = data.status.toUpperCase();
+        if (!VALID_STATUSES.includes(statusEnum as ValidStatus)) {
+            throw new BadRequestError(`Invalid status: ${data.status}. Must be one of: ${VALID_STATUSES.join(", ")}`);
+        }
+        
+        return prisma.job.update({
+            where: { id: jobId },
+            data: {
+                status: statusEnum as ValidStatus,
+                updatedAt: new Date(),
+            },
+        });
     }
 
     if (job.userId !== userId) {
@@ -121,57 +140,19 @@ export async function updateJob(
     return prisma.job.update({
         where: { id: jobId },
         data: {
-            status,
             updatedAt: new Date(),
         },
     });
 }
 
-
 export async function deleteJob(userId: string, jobId: string) {
-    // Verify the job exists and belongs to the user
-    const job = await prisma.job.findUnique({
-        where: { id: jobId },
+    const job = await prisma.job.findFirst({
+        where: { id: jobId, userId },
     });
 
-    if (!job) {
-        throw new NotFoundError("Job not found");
-    }
+    if (!job) throw new NotFoundError('Job not found');
 
-    if (job.userId !== userId) {
-        throw new ForbiddenError("You do not have permission to delete this job");
-    }
-
-    return prisma.job.delete({
+    await prisma.job.delete({
         where: { id: jobId },
     });
-}
-
-
-export async function getStats(userId: string) {
-    const [total, grouped] = await Promise.all([
-        prisma.job.count({ where: { userId } }),
-        prisma.job.groupBy({
-            by: ['status'],
-            where: { userId },
-            _count: { status: true },
-        }),
-    ]);
-
-    // Build a status-count map with defaults
-    const statusCounts: Record<string, number> = {
-        APPLIED: 0,
-        INTERVIEW: 0,
-        OFFER: 0,
-        REJECTED: 0,
-    };
-
-    for (const group of grouped) {
-        statusCounts[group.status] = group._count.status;
-    }
-
-    return {
-        total,
-        ...statusCounts,
-    };
 }

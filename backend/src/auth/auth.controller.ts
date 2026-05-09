@@ -1,21 +1,11 @@
 import type { Request, Response } from "express";
-import * as authService from "./auth.service.js";
-import type { RegisterInput, LoginInput } from "../validation/schemas/auth.schema.js";
-import { asyncHandler } from "../middleware/asyncHandler.js";
+import { getProfileService } from "./auth.service.js";
 
-export const register = asyncHandler(async (req: Request, res: Response) => {
-    const { email, password } = req.body as RegisterInput;
-    const token = await authService.register(email, password);
-    res.json({ token });
-});
-
-export const login = asyncHandler(async (req: Request, res: Response) => {
-    const { email, password } = req.body as LoginInput;
-    const token = await authService.login(email, password);
-    res.json({ token });
-});
-
-export const me = asyncHandler(async (req: Request & { userId?: string }, res: Response) => {
-    const profile = await authService.getProfile(req.userId!);
+export async function me(req: Request, res: Response) {
+  try {
+    const profile = await getProfileService(req.userId);
     res.json(profile);
-});
+  } catch (error: any) {
+    res.status(404).json({ error: error.message || 'User not found' });
+  }
+}
