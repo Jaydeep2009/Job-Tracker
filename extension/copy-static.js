@@ -16,10 +16,10 @@ const filesToCopy = [
   'manifest.json',
   'popup.html',
   'settings.html',
-  'icons/icon16.jpg',
-  'icons/icon32.jpg',
-  'icons/icon48.jpg',
-  'icons/icon128.jpg',
+  'icons/JOBTRACKER16x16.png',
+  'icons/JOBTRACKER32x32.png',
+  'icons/JOBTRACKER48x48.png',
+  'icons/JOBTRACKER128x128.png',
   'icons/manifest-icons.json'
 ];
 

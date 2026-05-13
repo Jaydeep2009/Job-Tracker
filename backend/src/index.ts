@@ -4,6 +4,8 @@ import healthRoute from "./routes/health.js";
 import authRoutes from "./auth/auth.routes.js";
 import jobsRoutes from "./jobs/jobs.routes.js";
 import { errorHandler } from "./middleware/errorHandler.js";
+import { globalLimiter, authLimiter } from "./middleware/rateLimiter.js";
+import { logger } from "./utils/logger.js";
 
 const PORT = process.env.PORT || 4000;
 
