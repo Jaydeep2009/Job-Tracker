@@ -1,24 +1,8 @@
-export class AppError extends Error {
-  constructor(public statusCode: number, message: string) {
-    super(message);
-    this.name = this.constructor.name;
-  }
-}
-
-export class UnauthorizedError extends AppError {
-  constructor(message = 'Unauthorized') {
-    super(401, message);
-  }
-}
-
-export class NotFoundError extends AppError {
-  constructor(message = 'Not found') {
-    super(404, message);
-  }
-}
-
-export class BadRequestError extends AppError {
-  constructor(message = 'Bad request') {
-    super(400, message);
-  }
-}
+export { AppError } from './AppError.js';
+export { UnauthorizedError } from './UnauthorizedError.js';
+export { NotFoundError } from './NotFoundError.js';
+export { BadRequestError } from './BadRequestError.js';
+export { ForbiddenError } from './ForbiddenError.js';
+export { ValidationError } from './ValidationError.js';
+export { ConflictError } from './ConflictError.js';
+export { ServiceUnavailableError } from './ServiceUnavailableError.js';

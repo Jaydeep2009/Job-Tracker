@@ -1,5 +1,5 @@
 import { prisma } from "../lib/prisma.js";
-import { BadRequestError, NotFoundError } from "../errors/index.js";
+import { BadRequestError, NotFoundError, ForbiddenError } from "../errors/index.js";
 
 const VALID_PLATFORMS = ["LINKEDIN", "NAUKRI", "INTERNSHALA"] as const;
 type ValidPlatform = typeof VALID_PLATFORMS[number];
@@ -20,9 +20,9 @@ export async function createJob(
     }
 ) {
     // Safe enum conversion (already validated by Zod)
-    const platform = data.platform as JobPlatform;
+    const platform = data.platform as ValidPlatform;
 
-    if (!VALID_PLATFORMS.includes(platformEnum as ValidPlatform)) {
+    if (!VALID_PLATFORMS.includes(platform)) {
         throw new BadRequestError(`Invalid platform: ${data.platform}. Must be one of: ${VALID_PLATFORMS.join(", ")}`);
     }
 
@@ -39,7 +39,7 @@ export async function createJob(
             location: data.location ?? null,
             description: data.description ?? null,
             jobUrl: data.jobUrl,
-            platform: platformEnum as ValidPlatform,
+            platform: platform,
             appliedAt: new Date(data.appliedAt),
             userId,
         },
@@ -135,7 +135,7 @@ export async function updateJob(
     }
 
     // Safe enum conversion (already validated by Zod)
-    const status = data.status as JobStatus;
+    const status = data.status as ValidStatus;
 
     return prisma.job.update({
         where: { id: jobId },
