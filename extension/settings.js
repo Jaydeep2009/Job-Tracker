@@ -63,7 +63,7 @@
     const CONFIG = {
       // Default production URLs
       PRODUCTION: {
-        BACKEND_URL: "https://humorous-solace-production.up.railway.app",
+        BACKEND_URL: "https://job-tracker-production-bfce.up.railway.app",
         DASHBOARD_URL: "https://job-tracker-jwue.vercel.app"
       },
       

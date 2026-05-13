@@ -27,6 +27,14 @@ export default[
         plugins:[resolve(), commonjs()]
     },
     {
+        input:'config.js',
+        output:{
+            file:'dist/config.js',
+            format:'iife'
+        },
+        plugins:[resolve(), commonjs()]
+    },
+    {
         input:'popup.js',
         output:{
             file:'dist/popup.js',
@@ -42,5 +50,4 @@ export default[
         },
         plugins:[resolve(), commonjs()]
     },
-
 ]
