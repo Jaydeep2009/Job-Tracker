@@ -1,5 +1,5 @@
 import type { Request, Response, NextFunction } from 'express';
-import { adminAuth } from '../lib/firebase.js';
+import { getAdminAuth } from '../lib/firebase.js';
 import { syncUser } from './auth.service.js';
 import { UnauthorizedError } from '../errors/index.js';
 
@@ -27,7 +27,7 @@ export async function authenticate(
     if(!token){
       throw new UnauthorizedError('No token provided');
     }
-    const decoded = await adminAuth.verifyIdToken(token);
+    const decoded = await getAdminAuth().verifyIdToken(token);
     req.userId = decoded.uid;
     // Sync user to DB on first encounter — no-op after that (memory cache)
     await syncUser(decoded.uid, decoded.email);
@@ -41,3 +41,4 @@ export async function authenticate(
     }
   }
 }
+

@@ -1,4 +1,4 @@
-import { adminAuth } from '../lib/firebase.js';
+import { getAdminAuth } from '../lib/firebase.js';
 import prisma from '../lib/prisma.js';
 
 // In-memory cache — avoids DB check on every request after first sync
@@ -11,7 +11,7 @@ export async function syncUser(userId: string, emailFromToken?: string): Promise
 
   if (!existing) {
     // First time — get email from token claim if available, else fetch from Firebase
-    const email = emailFromToken ?? (await adminAuth.getUser(userId)).email ?? '';
+    const email = emailFromToken ?? (await getAdminAuth().getUser(userId)).email ?? '';
 
     await prisma.user.upsert({
       where: { id: userId },
@@ -43,3 +43,4 @@ export async function getProfileService(userId: string) {
     jobCount: user._count.jobs,
   };
 }
+
