@@ -2,7 +2,7 @@ import { auth } from './firebase';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ||
     (typeof window !== 'undefined' && window.location.hostname !== 'localhost'
-        ? 'https://humorous-solace-production.up.railway.app'
+        ? 'https://job-tracker-production-f728.up.railway.app'
         : 'http://localhost:4000');
 
 // Waits for Firebase auth to initialize and returns the token
