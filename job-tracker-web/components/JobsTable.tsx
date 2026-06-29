@@ -114,7 +114,6 @@ export function JobsTable({ statusFilter, platformFilter }: JobsTableProps) {
       <Card className="border-2">
         <CardContent className="p-0">
           {jobs.length === 0 ? (
-          {jobs.length === 0 ? (
             <div className="py-10 text-center text-muted-foreground">
               No applications found.
             </div>
@@ -133,7 +132,6 @@ export function JobsTable({ statusFilter, platformFilter }: JobsTableProps) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {jobs.map((job) => (
                 {jobs.map((job) => (
                   <TableRow key={job.id}>
                     <TableCell className="border border-gray-300 font-semibold">
