@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
+import { auth } from "@/lib/firebase";
 
 import { DashboardStats } from "@/components/DashboardStats";
 import { JobFilters } from "@/components/JobFilters";
@@ -11,14 +12,11 @@ import { JobsTable } from "@/components/JobsTable";
 
 export default function DashboardPage() {
   const router = useRouter();
+  const [authReady, setAuthReady] = useState(false);  // ← new
   const [loading, setLoading] = useState(true);
-
-  // Filter state (managed by parent, passed to children)
+  
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [platformFilter, setPlatformFilter] = useState<string>("ALL");
-  const [searchQuery, setSearchQuery] = useState<string>("");
-
-  // Stats state (for DashboardStats component)
   const [totalJobs, setTotalJobs] = useState(0);
   const [stats, setStats] = useState({
     applied: 0,
@@ -27,19 +25,31 @@ export default function DashboardPage() {
     rejected: 0,
   });
 
-  // Fetch stats from dedicated endpoint
+  // Step 1 — wait for Firebase to restore session before doing anything
   useEffect(() => {
+    const unsub = auth.onAuthStateChanged((user) => {
+      if (!user) {
+        router.push("/login"); // not logged in → redirect
+      } else {
+        setAuthReady(true);   // logged in → allow data fetch
+      }
+    });
+    return () => unsub();
+  }, [router]);
+
+  // Step 2 — only fetch after auth is confirmed
+  useEffect(() => {
+    if (!authReady) return;
+
     const loadStats = async () => {
       try {
-        const token = localStorage.getItem("authToken");
-        if (!token) {
-          router.push("/login");
-          return;
-        }
-
-        const data = await apiFetch("/api/jobs/stats");
+        const data = await apiFetch("/api/jobs/stats"); // use your stats endpoint
         setTotalJobs(data.total || 0);
         setStats({
+          applied: data.APPLIED || 0,
+          interview: data.INTERVIEW || 0,
+          offer: data.OFFER || 0,
+          rejected: data.REJECTED || 0,
           applied: data.APPLIED || 0,
           interview: data.INTERVIEW || 0,
           offer: data.OFFER || 0,
@@ -47,15 +57,13 @@ export default function DashboardPage() {
         });
       } catch (err) {
         console.error("Error loading stats:", err);
-        localStorage.removeItem("authToken");
-        router.push("/login");
       } finally {
         setLoading(false);
       }
     };
 
     loadStats();
-  }, [router]);
+  }, [authReady]); // ← only runs once auth is confirmed
 
   const resetFilters = () => {
     setStatusFilter("ALL");
@@ -63,7 +71,8 @@ export default function DashboardPage() {
     setSearchQuery("");
   };
 
-  if (loading) {
+  // Show spinner until auth + data are both ready
+  if (!authReady || loading) {
     return (
       <div className="flex h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -73,10 +82,7 @@ export default function DashboardPage() {
 
   return (
     <div className="w-full space-y-6 px-10">
-      {/* Summary Cards */}
       <DashboardStats totalJobs={totalJobs} stats={stats} />
-
-      {/* Filters + Search */}
       <JobFilters
         statusFilter={statusFilter}
         platformFilter={platformFilter}
@@ -86,8 +92,6 @@ export default function DashboardPage() {
         onSearchChange={setSearchQuery}
         onReset={resetFilters}
       />
-
-      {/* Jobs Table - re-fetches when filters, search, or page changes */}
       <JobsTable
         statusFilter={statusFilter}
         platformFilter={platformFilter}

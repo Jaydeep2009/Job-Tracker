@@ -1,4 +1,4 @@
-import { get } from './core/storage.js';
+import { get, set, remove } from './core/storage.js';
 
 const CONFIG = {
   // Default production URLs
@@ -72,28 +72,28 @@ async function getDashboardUrl() {
  * Set custom backend URL
  */
 async function setBackendUrl(url) {
-  await chrome.storage.sync.set({ apiUrl: url });
+  await set('apiUrl', url);
 }
 
 /**
  * Set custom dashboard URL
  */
 async function setDashboardUrl(url) {
-  await chrome.storage.sync.set({ dashboardUrl: url });
+  await set('dashboardUrl', url);
 }
 
 /**
  * Toggle development mode
  */
 async function setDevMode(enabled) {
-  await chrome.storage.sync.set({ devMode: enabled });
+  await set('devMode', enabled);
 }
 
 /**
  * Reset to production URLs
  */
 async function resetToProduction() {
-  await chrome.storage.sync.remove(['apiUrl', 'dashboardUrl', 'devMode']);
+  await remove(['apiUrl', 'dashboardUrl', 'devMode']);
 }
 
 // ES6 exports

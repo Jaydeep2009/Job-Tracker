@@ -9,7 +9,8 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "build:railway": "npx prisma generate && npm run build",
-    "postinstall": "npx prisma migrate deploy",
+    "postinstall": "npx prisma generate",
+    "predeploy": "npx prisma migrate deploy",
     "start": "node dist/index.js"
   },
   "type": "module",

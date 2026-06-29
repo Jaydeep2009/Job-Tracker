@@ -1,34 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { ExternalLink, Loader2, Trash2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
+import { auth } from "@/lib/firebase";
 
-import {
-  Card,
-  CardContent,
-} from "@/components/ui/card";
-
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-
-import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { JobsPagination } from "@/components/JobsPagination";
+import { ExternalLink } from "lucide-react";
 
 type Job = {
   id: string;
@@ -47,62 +28,64 @@ interface JobsTableProps {
   searchQuery: string;
 }
 
-export function JobsTable({ statusFilter, platformFilter, searchQuery }: JobsTableProps) {
-  const router = useRouter();
+export function JobsTable({ statusFilter, platformFilter }: JobsTableProps) {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
+  const [authReady, setAuthReady] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const itemsPerPage = 10;
 
-  // Reset to page 1 when filters or search change
+  // Wait for Firebase auth before fetching
+  useEffect(() => {
+    const unsub = auth.onAuthStateChanged((user) => {
+      if (user) setAuthReady(true);
+      // no redirect here — layout.tsx handles that
+    });
+    return () => unsub();
+  }, []);
+
+  // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [statusFilter, platformFilter, searchQuery]);
+  }, [statusFilter, platformFilter]);
 
-  // Fetch jobs with server-side filtering
+  // Fetch from server with filters — no client-side filtering needed
   useEffect(() => {
+    if (!authReady) return;
+
     const loadJobs = async () => {
       setLoading(true);
       try {
-        const token = localStorage.getItem("authToken");
-        if (!token) {
-          router.push("/login");
-          return;
-        }
+        const params = new URLSearchParams({
+          page: String(currentPage),
+          limit: String(itemsPerPage),
+        });
 
-        // Build URL with server-side filter params
-        const params = new URLSearchParams();
-        params.set("page", String(currentPage));
-        params.set("limit", String(itemsPerPage));
+        // Pass filters to backend — your service now supports these
         if (statusFilter !== "ALL") params.set("status", statusFilter);
         if (platformFilter !== "ALL") params.set("platform", platformFilter);
-        if (searchQuery.trim()) params.set("search", searchQuery.trim());
 
         const data = await apiFetch(`/api/jobs?${params.toString()}`);
         setJobs(data.jobs || []);
         setTotalPages(data.totalPages || 1);
       } catch (err) {
         console.error("Error loading jobs:", err);
-        localStorage.removeItem("authToken");
-        router.push("/login");
+        // don't redirect — layout handles auth, this is a data error
       } finally {
         setLoading(false);
       }
     };
 
     loadJobs();
-  }, [router, currentPage, statusFilter, platformFilter, searchQuery]);
+  }, [authReady, currentPage, statusFilter, platformFilter]);
 
-  // Update job status
   const updateJobStatus = async (jobId: string, newStatus: string) => {
     try {
       await apiFetch(`/api/jobs/${jobId}`, {
         method: "PATCH",
         body: JSON.stringify({ status: newStatus }),
       });
-
-      // Update local state
       setJobs((prev) =>
         prev.map((job) =>
           job.id === jobId ? { ...job, status: newStatus as Job["status"] } : job
@@ -114,26 +97,7 @@ export function JobsTable({ statusFilter, platformFilter, searchQuery }: JobsTab
     }
   };
 
-  // Delete job
-  const deleteJob = async (jobId: string, jobTitle: string) => {
-    if (!confirm(`Delete "${jobTitle}"? This cannot be undone.`)) return;
-
-    try {
-      await apiFetch(`/api/jobs/${jobId}`, { method: "DELETE" });
-      // Remove from local state
-      setJobs((prev) => prev.filter((job) => job.id !== jobId));
-    } catch (err) {
-      console.error("Failed to delete job:", err);
-      alert("Failed to delete job");
-    }
-  };
-
-  // Pagination handler
-  const handlePageChange = (page: number) => {
-    setCurrentPage(page);
-  };
-
-  if (loading) {
+  if (!authReady || loading) {
     return (
       <Card className="border-2">
         <CardContent className="p-0">
@@ -147,9 +111,9 @@ export function JobsTable({ statusFilter, platformFilter, searchQuery }: JobsTab
 
   return (
     <>
-      {/* Jobs Table */}
       <Card className="border-2">
         <CardContent className="p-0">
+          {jobs.length === 0 ? (
           {jobs.length === 0 ? (
             <div className="py-10 text-center text-muted-foreground">
               No applications found.
@@ -168,26 +132,22 @@ export function JobsTable({ statusFilter, platformFilter, searchQuery }: JobsTab
                   <TableHead className="border border-gray-300 bg-gray-100 font-semibold w-[60px]"></TableHead>
                 </TableRow>
               </TableHeader>
-
               <TableBody>
+                {jobs.map((job) => (
                 {jobs.map((job) => (
                   <TableRow key={job.id}>
                     <TableCell className="border border-gray-300 font-semibold">
                       {job.companyName}
                     </TableCell>
-
                     <TableCell className="border border-gray-300">{job.jobTitle}</TableCell>
-
                     <TableCell className="border border-gray-300">{job.location || "-"}</TableCell>
-
                     <TableCell className="uppercase text-xs border border-gray-300">
                       {job.platform}
                     </TableCell>
-
                     <TableCell className="border border-gray-300">
                       <Select
                         value={job.status}
-                        onValueChange={(value: string) => updateJobStatus(job.id, value)}
+                        onValueChange={(value) => updateJobStatus(job.id, value)}
                       >
                         <SelectTrigger className="w-[140px] h-8">
                           <SelectValue />
@@ -200,18 +160,12 @@ export function JobsTable({ statusFilter, platformFilter, searchQuery }: JobsTab
                         </SelectContent>
                       </Select>
                     </TableCell>
-
                     <TableCell className="text-xs border border-gray-300">
                       {new Date(job.appliedAt).toLocaleDateString()}
                     </TableCell>
-
                     <TableCell className="text-xs border border-gray-300">
-                      <a
-                        href={job.jobUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-blue-600 hover:underline"
-                      >
+                      <a href={job.jobUrl} target="_blank" rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-blue-600 hover:underline">
                         View <ExternalLink className="h-3 w-3" />
                       </a>
                     </TableCell>
@@ -234,13 +188,11 @@ export function JobsTable({ statusFilter, platformFilter, searchQuery }: JobsTab
           )}
         </CardContent>
       </Card>
-      {/* Pagination */}
       <JobsPagination
         currentPage={currentPage}
         totalPages={totalPages}
-        onPageChange={handlePageChange}
+        onPageChange={setCurrentPage}
       />
     </>
   );
 }
-

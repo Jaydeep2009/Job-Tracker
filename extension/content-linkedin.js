@@ -6,18 +6,24 @@ import {
   checkForPendingJob
 } from './shared.js';
 import { extractJob, getPlatformName, detectApplyType } from './services/jobExtractor.js';
+import { isExtensionContextValid } from './core/context.js';
 
 
 info("Content script loaded");
 
 // Check if extension context is valid on load
-let extensionContextValid = true;
-try {
-  chrome.runtime.getManifest();
-  info("Extension version:", chrome.runtime.getManifest().version);
-  info("Running on:", window.location.href);
-} catch (error) {
-  extensionContextValid = false;
+let extensionContextValid = isExtensionContextValid();
+
+if (extensionContextValid) {
+  try {
+    info("Extension version:", chrome.runtime.getManifest().version);
+    info("Running on:", window.location.href);
+  } catch (error) {
+    extensionContextValid = false;
+    logError("Extension context invalid on load");
+    showExtensionInvalidWarning();
+  }
+} else {
   logError("Extension context invalid on load");
   // Show persistent warning banner
   if (document.readyState === "loading") {

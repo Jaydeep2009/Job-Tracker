@@ -7,7 +7,7 @@ Job application tracking dashboard built with Next.js 16.
 Create a `.env.local` file with:
 
 ```env
-NEXT_PUBLIC_API_URL=https://humorous-solace-production.up.railway.app
+NEXT_PUBLIC_API_URL=https://job-tracker-production-f728.up.railway.app
 ```
 
 ## Development
@@ -28,7 +28,7 @@ This project is configured for Vercel deployment.
 1. Push to GitHub
 2. Import project in Vercel
 3. Add environment variable:
-   - `NEXT_PUBLIC_API_URL` = `https://humorous-solace-production.up.railway.app`
+   - `NEXT_PUBLIC_API_URL` = `https://job-tracker-production-f728.up.railway.app`
 4. Deploy
 
 ## Features

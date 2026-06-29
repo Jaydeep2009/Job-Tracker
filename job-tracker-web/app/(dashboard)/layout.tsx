@@ -3,6 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { LogOut, Briefcase, User, Settings } from "lucide-react";
+import { onAuthStateChanged, signOut } from "firebase/auth";
+import { auth } from "@/lib/firebase";
 import { Button } from "@/components/ui/button";
 import {
     DropdownMenu,
@@ -12,7 +14,6 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { apiFetch } from "@/lib/api";
 
 export default function DashboardLayout({
     children,
@@ -21,37 +22,25 @@ export default function DashboardLayout({
 }) {
     const router = useRouter();
     const [userEmail, setUserEmail] = useState<string>("");
-    const [mounted, setMounted] = useState(false);
+    const [authChecked, setAuthChecked] = useState(false); // removed: mounted (redundant)
 
     useEffect(() => {
-        setMounted(true);
-        
-        // Check if user is authenticated
-        const token = localStorage.getItem("authToken");
-        if (!token) {
-            router.push("/login");
-            return;
-        }
-        
-        const fetchUser = async () => {
-            try {
-                const data = await apiFetch("/api/auth/me");
-                // Assuming the API returns user info, adjust based on your actual API
-                setUserEmail(localStorage.getItem("userEmail") || "user@example.com");
-            } catch (err) {
-                console.error("Failed to fetch user:", err);
-                // If auth fails, redirect to login
-                localStorage.removeItem("authToken");
-                localStorage.removeItem("userEmail");
+        const unsub = onAuthStateChanged(auth, (user) => {
+            if (!user) {
                 router.push("/login");
+            } else {
+                setUserEmail(user.email ?? "");
             }
-        };
-        fetchUser();
+            setAuthChecked(true); // always set, whether user exists or not
+        });
+        return () => unsub();
     }, [router]);
 
-    const handleLogout = () => {
-        localStorage.removeItem("authToken");
-        localStorage.removeItem("userEmail");
+    // Prevents flash of unauthenticated content
+    if (!authChecked) return null;
+
+    const handleLogout = async () => {
+        await signOut(auth);
         router.push("/login");
     };
 
@@ -62,9 +51,8 @@ export default function DashboardLayout({
                     <Briefcase className="h-5 w-5" />
                     Job Tracker
                 </h1>
-                
                 <div className="flex items-center gap-4">
-                    {mounted && (
+                    {userEmail && ( // only render when we have a user — replaces mounted
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                                 <Button variant="ghost" className="gap-2">
@@ -96,12 +84,11 @@ export default function DashboardLayout({
                     )}
                 </div>
             </header>
-                <main className="w-full flex justify-center">
-        <div className="w-full px-10 py-6">
-            {children}
-        </div>
-    </main>
-
+            <main className="w-full flex justify-center">
+                <div className="w-full px-10 py-6">
+                    {children}
+                </div>
+            </main>
         </div>
     );
 }
